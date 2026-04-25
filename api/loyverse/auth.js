@@ -10,8 +10,9 @@ module.exports = async function handler(req, res) {
   url.searchParams.set("response_type", "code");
   url.searchParams.set("client_id", clientId);
   url.searchParams.set("redirect_uri", getRedirectUri(req));
-  url.searchParams.set("scope", "ITEMS_READ RECEIPTS_READ RECEIPTS_WRITE STORES_READ MERCHANT_READ");
+  url.searchParams.set("scope", "ITEMS_READ PAYMENT_TYPES_READ RECEIPTS_READ RECEIPTS_WRITE STORES_READ MERCHANT_READ");
 
   res.writeHead(302, { Location: url.toString() });
   res.end();
 };
+

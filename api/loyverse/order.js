@@ -12,6 +12,18 @@ async function getDefaultStoreId() {
   return store.id;
 }
 
+async function getDefaultPaymentTypeId() {
+  if (process.env.LOYVERSE_PAYMENT_TYPE_ID) return process.env.LOYVERSE_PAYMENT_TYPE_ID;
+  const response = await fetch(`${baseUrl}/v1.0/payment_types?limit=250`, {
+    headers: { Authorization: `Bearer ${process.env.LOYVERSE_ACCESS_TOKEN}` },
+  });
+  const payload = await response.json();
+  if (!response.ok) throw new Error(payload.error || payload.message || "Unable to fetch payment types");
+  const paymentType = (payload.payment_types || []).find((type) => type.type === "CASH") || payload.payment_types?.[0];
+  if (!paymentType) throw new Error("No Loyverse payment type found");
+  return paymentType.id;
+}
+
 module.exports = async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
   if (!process.env.LOYVERSE_ACCESS_TOKEN) {
@@ -21,6 +33,7 @@ module.exports = async function handler(req, res) {
   try {
     const order = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
     const storeId = await getDefaultStoreId();
+    const paymentTypeId = await getDefaultPaymentTypeId();
     const payload = {
       store_id: storeId,
       source: "Ginly QR Order",
@@ -31,6 +44,12 @@ module.exports = async function handler(req, res) {
         quantity: Number(item.quantity),
         price: Number(item.price),
       })),
+      payments: [
+        {
+          payment_type_id: paymentTypeId,
+          money_amount: Number(order.total),
+        },
+      ],
     };
 
     const response = await fetch(`${baseUrl}/v1.0/receipts`, {
@@ -50,4 +69,5 @@ module.exports = async function handler(req, res) {
     res.status(200).json({ synced: false, error: err.message });
   }
 };
+
 
