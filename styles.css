@@ -191,3 +191,35 @@ h2 { margin-bottom: 4px; font-size: 22px; }
   .item-art { min-height: 104px; }
   .qr-card img { width: 100%; height: auto; aspect-ratio: 1; }
 }
+
+.table-bill {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfa;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.table-bill strong {
+  color: var(--ink);
+}
+
+.table-bill span {
+  color: var(--green-dark);
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.checkout-button {
+  margin-top: 14px;
+}
+
+.bill-total-card {
+  border-color: var(--green);
+  background: var(--surface-strong);
+}

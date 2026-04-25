@@ -23,6 +23,7 @@ const els = {
   cartCount: document.getElementById("cart-count"),
   cartItems: document.getElementById("cart-items"),
   cartTotal: document.getElementById("cart-total"),
+  tableBillSummary: document.getElementById("table-bill-summary"),
   orderNote: document.getElementById("order-note"),
   submitResult: document.getElementById("submit-result"),
   tableInput: document.getElementById("table-input"),
@@ -33,13 +34,32 @@ const els = {
 
 const money = new Intl.NumberFormat("en-TH", { style: "currency", currency: "THB" });
 const getSessionKey = () => `ginly-session-${state.session}`;
-const getOrders = () => JSON.parse(localStorage.getItem("ginly-orders") || "[]");
-const saveOrders = (orders) => localStorage.setItem("ginly-orders", JSON.stringify(orders));
+const getBillKey = () => `ginly-bill-${state.session}`;
 const isSessionClosed = () => localStorage.getItem(getSessionKey()) === "closed";
+
+function getCurrentBill() {
+  return JSON.parse(localStorage.getItem(getBillKey()) || JSON.stringify({
+    id: `TABLE-${state.table}-${state.session}`,
+    table: state.table,
+    session: state.session,
+    batches: [],
+    items: [],
+    total: 0,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  }));
+}
+
+function saveCurrentBill(bill) {
+  bill.updatedAt = new Date().toISOString();
+  bill.total = bill.items.reduce((sum, item) => sum + item.quantity * item.price, 0);
+  localStorage.setItem(getBillKey(), JSON.stringify(bill));
+}
 
 function setView(view) {
   document.querySelectorAll(".nav-button").forEach((button) => button.classList.toggle("active", button.dataset.view === view));
   document.querySelectorAll(".app-view").forEach((panel) => panel.classList.toggle("active", panel.dataset.panel === view));
+  renderTableBill();
 }
 
 function itemInitial(name) {
@@ -102,8 +122,7 @@ function renderMenu() {
 
 function addToCart(id) {
   if (isSessionClosed()) {
-    els.submitResult.className = "submit-result error";
-    els.submitResult.textContent = "这个桌码已经失效，请联系店员重新开桌。";
+    showMessage("这个桌码已经失效，请联系店员重新开桌。", "error");
     return;
   }
   const item = state.menu.find((entry) => entry.id === id);
@@ -144,42 +163,114 @@ function renderCart() {
         </div>
       </div>`).join("")
     : `<div class="empty-state">从左侧菜单选择菜品</div>`;
+  renderTableBill();
 }
 
-async function submitOrder() {
+function appendCartToTableBill() {
   const { lines, quantity, total } = getCartSummary();
   if (!quantity) return;
   if (isSessionClosed()) {
-    els.submitResult.className = "submit-result error";
-    els.submitResult.textContent = "这个桌码已经失效，请联系店员重新开桌。";
+    showMessage("这个桌码已经失效，请联系店员重新开桌。", "error");
     return;
   }
-  const order = {
-    id: `GQO-${Date.now().toString().slice(-6)}`,
-    table: state.table,
-    session: state.session,
-    note: els.orderNote.value.trim(),
-    total,
+
+  const bill = getCurrentBill();
+  const batch = {
+    id: `ADD-${Date.now().toString().slice(-6)}`,
     createdAt: new Date().toISOString(),
-    items: lines.map(({ item, quantity: qty }) => ({ id: item.id, variantId: item.variantId, name: item.name, quantity: qty, price: item.price || 0 })),
+    note: els.orderNote.value.trim(),
+    items: lines.map(({ item, quantity: qty }) => ({
+      id: item.id,
+      variantId: item.variantId,
+      name: item.name,
+      quantity: qty,
+      price: item.price || 0,
+    })),
+    total,
   };
-  els.submitResult.className = "submit-result";
-  els.submitResult.textContent = "正在提交订单...";
-  let syncMessage = "订单已在 Ginly QR Order 中创建。";
-  try {
-    const response = await fetch("/api/loyverse/order", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(order) });
-    const payload = await response.json();
-    syncMessage = payload.synced ? `订单已同步 Loyverse，编号 ${payload.receiptNumber || payload.receiptId || order.id}。` : `订单已创建；Loyverse 暂未同步：${payload.error || "未配置 access token"}`;
-  } catch (error) {
-    syncMessage = `订单已创建；Loyverse 暂未同步：${error.message}`;
-  }
-  saveOrders([order, ...getOrders()].slice(0, 30));
+
+  batch.items.forEach((item) => {
+    const existing = bill.items.find((entry) => entry.variantId === item.variantId && entry.price === item.price);
+    if (existing) {
+      existing.quantity += item.quantity;
+    } else {
+      bill.items.push({ ...item });
+    }
+  });
+  bill.batches.push(batch);
+  saveCurrentBill(bill);
+
   state.cart.clear();
   els.orderNote.value = "";
   renderCart();
-  renderOrders();
-  els.submitResult.className = "submit-result ok";
-  els.submitResult.textContent = `${order.id}：${syncMessage}`;
+  renderTableBill();
+  showMessage(`${batch.id} 已加入桌号 ${state.table} 的账单，当前合计 ${money.format(bill.total)}。`, "ok");
+}
+
+function showMessage(message, type = "") {
+  els.submitResult.className = `submit-result ${type}`.trim();
+  els.submitResult.textContent = message;
+}
+
+function renderTableBill() {
+  const bill = getCurrentBill();
+  const quantity = bill.items.reduce((sum, item) => sum + item.quantity, 0);
+  els.tableBillSummary.innerHTML = quantity
+    ? `<strong>本桌已点 ${quantity} 件</strong><span>${money.format(bill.total)}</span>`
+    : `<strong>本桌还没有已提交菜品</strong><span>${money.format(0)}</span>`;
+
+  els.ordersList.innerHTML = quantity
+    ? `
+      <article class="order-card bill-total-card">
+        <strong>Table ${bill.table} · 本桌汇总</strong>
+        <p>${quantity} 件菜品 · ${money.format(bill.total)}</p>
+        <p>${bill.items.map((item) => `${item.name} x${item.quantity}`).join(", ")}</p>
+      </article>
+      ${bill.batches.map((batch) => `
+        <article class="order-card">
+          <strong>${batch.id} · 加菜</strong>
+          <p>${new Date(batch.createdAt).toLocaleString()} · ${money.format(batch.total)}</p>
+          <p>${batch.items.map((item) => `${item.name} x${item.quantity}`).join(", ")}</p>
+          ${batch.note ? `<p>备注：${batch.note}</p>` : ""}
+        </article>`).join("")}`
+    : `<div class="empty-state">这桌还没有已提交菜品</div>`;
+}
+
+async function checkoutTable() {
+  const bill = getCurrentBill();
+  if (!bill.items.length) {
+    showMessage("这桌还没有可以结账的菜品。", "error");
+    return;
+  }
+
+  showMessage("正在把本桌汇总账单同步到 Loyverse...", "");
+  const checkoutOrder = {
+    id: `GQO-${Date.now().toString().slice(-6)}`,
+    table: bill.table,
+    session: bill.session,
+    note: `Ginly QR Order table ${bill.table} checkout`,
+    total: bill.total,
+    createdAt: new Date().toISOString(),
+    items: bill.items,
+  };
+
+  try {
+    const response = await fetch("/api/loyverse/order", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(checkoutOrder),
+    });
+    const payload = await response.json();
+    if (!payload.synced) throw new Error(payload.error || "Loyverse sync failed");
+
+    localStorage.setItem(getSessionKey(), "closed");
+    localStorage.removeItem(getBillKey());
+    renderSessionStatus();
+    renderTableBill();
+    showMessage(`本桌已结账并同步 Loyverse，编号 ${payload.receiptNumber || payload.receiptId || checkoutOrder.id}。`, "ok");
+  } catch (error) {
+    showMessage(`结账失败：${error.message}`, "error");
+  }
 }
 
 function buildSession(table) {
@@ -201,6 +292,7 @@ function showSession(table = state.table, session = state.session) {
   els.sessionLink.textContent = url.toString();
   els.qrImage.src = `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(url.toString())}`;
   renderSessionStatus();
+  renderTableBill();
 }
 
 function renderSessionStatus() {
@@ -209,23 +301,11 @@ function renderSessionStatus() {
   els.sessionStatus.classList.toggle("closed", closed);
 }
 
-function renderOrders() {
-  const orders = getOrders();
-  els.ordersList.innerHTML = orders.length
-    ? orders.map((order) => `
-      <article class="order-card">
-        <strong>${order.id} · Table ${order.table}</strong>
-        <p>${new Date(order.createdAt).toLocaleString()} · ${money.format(order.total)}</p>
-        <p>${order.items.map((item) => `${item.name} x${item.quantity}`).join(", ")}</p>
-        ${order.note ? `<p>备注：${order.note}</p>` : ""}
-      </article>`).join("")
-    : `<div class="empty-state">还没有订单</div>`;
-}
-
 document.querySelectorAll(".nav-button").forEach((button) => button.addEventListener("click", () => setView(button.dataset.view)));
 document.getElementById("refresh-menu").addEventListener("click", loadMenu);
 document.getElementById("clear-cart").addEventListener("click", () => { state.cart.clear(); renderCart(); });
-document.getElementById("submit-order").addEventListener("click", submitOrder);
+document.getElementById("submit-order").addEventListener("click", appendCartToTableBill);
+document.getElementById("checkout-table").addEventListener("click", checkoutTable);
 els.categoryTabs.addEventListener("click", (event) => {
   const button = event.target.closest("[data-category]");
   if (!button) return;
@@ -253,5 +333,5 @@ document.getElementById("close-session").addEventListener("click", () => { local
 
 showSession(state.table, state.session);
 renderCart();
-renderOrders();
+renderTableBill();
 loadMenu();

@@ -30,7 +30,7 @@
             <p class="eyebrow">QR ordering for Loyverse POS</p>
             <h1>桌号 <span id="current-table">08</span></h1>
             <p class="lead">
-              选择菜品后提交订单。第一版会先生成订单并尝试同步到 Loyverse，店内可用小票打印链路做实测。
+              选择菜品后会追加到本桌账单。同一桌可以多次加菜，最后由员工汇总买单。
             </p>
           </div>
           <div class="status-pill" id="session-status">桌码可用</div>
@@ -66,7 +66,8 @@
               <span>合计</span>
               <strong id="cart-total">THB 0.00</strong>
             </div>
-            <button class="primary-button" id="submit-order" type="button">提交订单</button>
+            <button class="primary-button" id="submit-order" type="button">加入本桌订单</button>
+            <div class="table-bill" id="table-bill-summary"></div>
             <p class="submit-result" id="submit-result"></p>
           </aside>
         </div>
@@ -105,11 +106,12 @@
           <section class="orders-panel">
             <div class="section-head">
               <div>
-                <h2>今日订单</h2>
-                <p>本地 MVP 订单列表，下一步接 Loyverse 实单状态。</p>
+                <h2>本桌账单</h2>
+                <p>同一桌多次加菜会合并在这里，买单时汇总同步到 Loyverse。</p>
               </div>
             </div>
             <div class="orders-list" id="orders-list"></div>
+            <button class="primary-button checkout-button" id="checkout-table" type="button">买单汇总到 Loyverse</button>
           </section>
         </div>
       </section>
@@ -118,3 +120,4 @@
     <script src="/app.js" type="module"></script>
   </body>
 </html>
+
