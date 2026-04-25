@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/loyverse/callback",
+      "destination": "/callback.html"
+    }
+  ]
+}
