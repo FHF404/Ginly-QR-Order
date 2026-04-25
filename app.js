@@ -30,6 +30,10 @@ const els = {
   qrImage: document.getElementById("qr-image"),
   sessionLink: document.getElementById("session-link"),
   ordersList: document.getElementById("orders-list"),
+  mobileCartBar: document.getElementById("mobile-cart-bar"),
+  mobileCartLabel: document.getElementById("mobile-cart-label"),
+  mobileCartTotal: document.getElementById("mobile-cart-total"),
+  cartBackdrop: document.getElementById("cart-backdrop"),
 };
 
 const money = new Intl.NumberFormat("en-TH", { style: "currency", currency: "THB" });
@@ -152,6 +156,9 @@ function renderCart() {
   const { lines, quantity, total } = getCartSummary();
   els.cartCount.textContent = quantity ? `${quantity} 件菜品` : "还没有选择菜品";
   els.cartTotal.textContent = money.format(total);
+  els.mobileCartLabel.textContent = quantity ? `购物车 · ${quantity} 件` : "购物车 · 0 件";
+  els.mobileCartTotal.textContent = money.format(total);
+  els.mobileCartBar.classList.toggle("has-items", quantity > 0);
   els.cartItems.innerHTML = lines.length
     ? lines.map(({ item, quantity: qty }) => `
       <div class="cart-row">
@@ -205,11 +212,20 @@ function appendCartToTableBill() {
   renderCart();
   renderTableBill();
   showMessage(`${batch.id} 已加入桌号 ${state.table} 的账单，当前合计 ${money.format(bill.total)}。`, "ok");
+  closeMobileCart();
 }
 
 function showMessage(message, type = "") {
   els.submitResult.className = `submit-result ${type}`.trim();
   els.submitResult.textContent = message;
+}
+
+function openMobileCart() {
+  document.body.classList.add("cart-open");
+}
+
+function closeMobileCart() {
+  document.body.classList.remove("cart-open");
 }
 
 function renderTableBill() {
@@ -306,6 +322,9 @@ document.getElementById("refresh-menu").addEventListener("click", loadMenu);
 document.getElementById("clear-cart").addEventListener("click", () => { state.cart.clear(); renderCart(); });
 document.getElementById("submit-order").addEventListener("click", appendCartToTableBill);
 document.getElementById("checkout-table").addEventListener("click", checkoutTable);
+els.mobileCartBar.addEventListener("click", openMobileCart);
+els.cartBackdrop.addEventListener("click", closeMobileCart);
+document.getElementById("mobile-close-cart").addEventListener("click", closeMobileCart);
 els.categoryTabs.addEventListener("click", (event) => {
   const button = event.target.closest("[data-category]");
   if (!button) return;
@@ -335,3 +354,4 @@ showSession(state.table, state.session);
 renderCart();
 renderTableBill();
 loadMenu();
+

@@ -67,6 +67,7 @@
               <strong id="cart-total">THB 0.00</strong>
             </div>
             <button class="primary-button" id="submit-order" type="button">加入本桌订单</button>
+            <button class="secondary-button mobile-close-cart" id="mobile-close-cart" type="button">继续点餐</button>
             <div class="table-bill" id="table-bill-summary"></div>
             <p class="submit-result" id="submit-result"></p>
           </aside>
@@ -117,7 +118,14 @@
       </section>
     </main>
 
+    <button class="mobile-cart-bar" id="mobile-cart-bar" type="button">
+      <span id="mobile-cart-label">购物车 · 0 件</span>
+      <strong id="mobile-cart-total">THB 0.00</strong>
+    </button>
+    <div class="cart-backdrop" id="cart-backdrop"></div>
+
     <script src="/app.js" type="module"></script>
   </body>
 </html>
+
 
