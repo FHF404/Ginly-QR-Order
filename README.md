@@ -1,6 +1,6 @@
-# QR Table Ordering
+# Ginly QR Order
 
-Static Vercel-ready prototype page for a Loyverse POS QR table ordering integration.
+Static Vercel-ready prototype page for Ginly QR Order, a Loyverse POS QR table ordering integration.
 
 ## Deploy
 
