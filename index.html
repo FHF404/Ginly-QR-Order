@@ -6,79 +6,115 @@
     <title>Ginly QR Order</title>
     <meta
       name="description"
-      content="Ginly QR Order is a QR table ordering integration prototype for Loyverse POS."
+      content="Ginly QR Order is a QR table ordering MVP for restaurants using Loyverse POS."
     />
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
     <header class="topbar">
       <div class="brand">
-        <span class="brand-mark">Q</span>
+        <span class="brand-mark">G</span>
         <span>Ginly QR Order</span>
       </div>
-      <a class="ghost-link" href="/callback.html">OAuth Callback</a>
+      <nav class="nav-actions" aria-label="App navigation">
+        <button class="nav-button active" data-view="order">顾客点餐</button>
+        <button class="nav-button" data-view="staff">员工开桌</button>
+        <a class="ghost-link" href="/api/loyverse/auth">连接 Loyverse</a>
+      </nav>
     </header>
 
-    <main class="shell">
-      <section class="hero">
-        <div class="hero-copy">
-          <p class="eyebrow">Ginly QR Order for Loyverse POS</p>
-          <h1>Ginly QR Order</h1>
-          <p class="lead">
-            顾客扫桌码点餐，菜单来自 Loyverse，提交后进入店内处理流程。当前页面用于先部署到
-            Vercel，获取正式域名并配置 Loyverse Redirect URL。
-          </p>
-          <div class="actions">
-            <a class="primary-button" href="#demo">查看流程</a>
-            <a class="secondary-button" href="/api/loyverse/callback">测试回调地址</a>
+    <main>
+      <section class="customer-view app-view active" data-panel="order">
+        <div class="customer-hero">
+          <div>
+            <p class="eyebrow">QR ordering for Loyverse POS</p>
+            <h1>桌号 <span id="current-table">08</span></h1>
+            <p class="lead">
+              选择菜品后提交订单。第一版会先生成订单并尝试同步到 Loyverse，店内可用小票打印链路做实测。
+            </p>
           </div>
+          <div class="status-pill" id="session-status">桌码可用</div>
         </div>
 
-        <div class="phone" aria-label="Customer ordering preview">
-          <div class="phone-header">
-            <span>Table 08</span>
-            <strong>Open</strong>
-          </div>
-          <div class="menu-item">
-            <div>
-              <h2>Chicken Rice</h2>
-              <p>香米饭 / 鸡肉 / 酱汁</p>
+        <div class="order-layout">
+          <section class="menu-section" aria-label="Menu">
+            <div class="section-head">
+              <div>
+                <h2>菜单</h2>
+                <p id="menu-source">正在加载菜单...</p>
+              </div>
+              <button class="icon-button" id="refresh-menu" type="button" title="刷新菜单">↻</button>
             </div>
-            <span>$4.50</span>
-          </div>
-          <div class="menu-item">
-            <div>
-              <h2>Iced Tea</h2>
-              <p>少糖 / 加冰</p>
+            <div class="category-tabs" id="category-tabs"></div>
+            <div class="menu-grid" id="menu-grid"></div>
+          </section>
+
+          <aside class="cart-panel" aria-label="Cart">
+            <div class="section-head">
+              <div>
+                <h2>购物车</h2>
+                <p id="cart-count">还没有选择菜品</p>
+              </div>
+              <button class="text-button" id="clear-cart" type="button">清空</button>
             </div>
-            <span>$1.50</span>
-          </div>
-          <button class="order-button">Submit Order</button>
+            <div class="cart-items" id="cart-items"></div>
+            <label class="note-field">
+              <span>订单备注</span>
+              <textarea id="order-note" rows="3" placeholder="例如：少辣、不要冰"></textarea>
+            </label>
+            <div class="cart-total">
+              <span>合计</span>
+              <strong id="cart-total">THB 0.00</strong>
+            </div>
+            <button class="primary-button" id="submit-order" type="button">提交订单</button>
+            <p class="submit-result" id="submit-result"></p>
+          </aside>
         </div>
       </section>
 
-      <section class="workflow" id="demo">
-        <article>
-          <span>01</span>
-          <h2>店员开桌</h2>
-          <p>选择桌号并生成一次性二维码，交给顾客扫码。</p>
-        </article>
-        <article>
-          <span>02</span>
-          <h2>顾客点餐</h2>
-          <p>菜单从 Loyverse 商品和分类同步，不额外维护菜单。</p>
-        </article>
-        <article>
-          <span>03</span>
-          <h2>同步订单</h2>
-          <p>顾客提交后，后端把订单写入 Loyverse 集成流程。</p>
-        </article>
-        <article>
-          <span>04</span>
-          <h2>买单失效</h2>
-          <p>结账后关闭桌码 session，二维码不再接受新订单。</p>
-        </article>
+      <section class="staff-view app-view" data-panel="staff">
+        <div class="staff-layout">
+          <section class="control-panel">
+            <p class="eyebrow">Staff console</p>
+            <h1>开桌二维码</h1>
+            <p class="lead">
+              输入桌号生成顾客点餐链接。顾客买单后点击关闭桌码，这个 session 会失效。
+            </p>
+
+            <div class="table-form">
+              <label>
+                <span>桌号</span>
+                <input id="table-input" type="text" value="08" inputmode="numeric" />
+              </label>
+              <button class="primary-button" id="create-session" type="button">生成二维码</button>
+            </div>
+
+            <div class="qr-card">
+              <img id="qr-image" alt="Table order QR code" />
+              <div>
+                <span class="small-label">顾客链接</span>
+                <p id="session-link"></p>
+                <div class="inline-actions">
+                  <button class="secondary-button" id="copy-link" type="button">复制链接</button>
+                  <button class="danger-button" id="close-session" type="button">买单后失效</button>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="orders-panel">
+            <div class="section-head">
+              <div>
+                <h2>今日订单</h2>
+                <p>本地 MVP 订单列表，下一步接 Loyverse 实单状态。</p>
+              </div>
+            </div>
+            <div class="orders-list" id="orders-list"></div>
+          </section>
+        </div>
       </section>
     </main>
+
+    <script src="/app.js" type="module"></script>
   </body>
 </html>
